@@ -94,15 +94,10 @@ contract Auction {
         if (highestBidder != address(0)) {
             // Calcular la comisión
             uint256 commission = (highestBid * commissionRate) / 100;
-            uint256 finalAmount = highestBid - commission;
             
             // Transferir la comisión al propietario
             (bool success, ) = owner.call{value: commission}("");
             require(success, unicode"La transferencia de la comisión falló");
-            
-            // Transferir el monto restante al mejor postor
-            (success, ) = highestBidder.call{value: finalAmount}("");
-            require(success, unicode"La transferencia al ganador falló");
         }
         
         emit AuctionEnded(highestBidder, highestBid);
@@ -139,23 +134,25 @@ contract Auction {
 
     // Función para obtener todas las ofertas
     function getAllBids() external view returns (address[] memory bidders, uint256[] memory amounts) {
+        // Asumimos un máximo razonable de 1000 ofertas
+        uint256 maxBids = 1000;
+        bidders = new address[](maxBids);
+        amounts = new uint256[](maxBids);
+        
         uint256 count = 0;
-        for (uint256 i = 0; i < type(uint256).max; i++) {
-            if (bids[address(uint160(i))] > 0) {
+        for (uint256 i = 0; i < maxBids; i++) {
+            address bidder = address(uint160(i));
+            if (bids[bidder] > 0) {
+                bidders[count] = bidder;
+                amounts[count] = bids[bidder];
                 count++;
             }
         }
         
-        bidders = new address[](count);
-        amounts = new uint256[](count);
-        
-        uint256 index = 0;
-        for (uint256 i = 0; i < type(uint256).max; i++) {
-            if (bids[address(uint160(i))] > 0) {
-                bidders[index] = address(uint160(i));
-                amounts[index] = bids[address(uint160(i))];
-                index++;
-            }
+        // Redimensionar los arrays al tamaño real
+        assembly {
+            mstore(bidders, count)
+            mstore(amounts, count)
         }
     }
 } 
